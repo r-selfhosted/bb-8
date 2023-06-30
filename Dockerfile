@@ -1,36 +1,13 @@
-FROM node:12-stretch AS build
+FROM node:14-buster
 
-#Update stretch repositories
-RUN sed -i s/deb.debian.org/archive.debian.org/g /etc/apt/sources.list \
-    && sed -i 's|security.debian.org|archive.debian.org/|g' /etc/apt/sources.list \
-    && sed -i '/stretch-updates/d' /etc/apt/sources.list
+WORKDIR /usr/src/monitorss
 
-RUN apt-get update && apt-get install -y \
-        g++ \
-        git \
-        make \
-        python \
-    && mkdir -p /usr/src/node_modules \
-    && chown -R node:node /usr/src
-WORKDIR /usr/src
-# Copy the package.json first before copying app
-COPY package*.json ./
-USER node
-# If package.json hasn't changed, Docker uses same image layer, and npm install
-# will be skipped since Docker assumes output is the same as before
-RUN npm install
+COPY . .
 
+RUN cd /usr/src/monitorss \
+    && npm install --loglevel verbose \
+    && chmod +x entrypoint.sh
 
-FROM node:12-alpine
+EXPOSE 8083
 
-RUN mkdir /app \
-    && chown -R node:node /app
-WORKDIR /app
-COPY --from=build /usr/src .
-# Copy the application from host machine directory argument of docker build
-# to virtual machine
-COPY --chown=node:node . .
-USER node
-ENV DRSS_BOT_TOKEN='drss_docker_token' \
-    DRSS_DATABASE_URI='mongodb://mongo:27017/rss'
-CMD ["node", "server.js"]
+ENTRYPOINT [ "/usr/src/monitorss/entrypoint.sh" ]
